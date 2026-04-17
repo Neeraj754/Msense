@@ -1,0 +1,555 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MSense — AI Stock Analyser</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060D14;color:#C8D8E8;font-family:'IBM Plex Mono',monospace;min-height:100vh}
+
+/* HEADER */
+.header{background:#060D14;border-bottom:1px solid #1E3448;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,#F5A623,#FF6B35);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#060D14}
+.logo-text h1{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#F5A623;letter-spacing:0.03em}
+.logo-text p{font-size:10px;color:#4A6580;letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+.header-badge{display:flex;align-items:center;gap:6px;font-size:10px;color:#4A6580;letter-spacing:0.08em}
+.dot{width:7px;height:7px;border-radius:50%;background:#00E5A0;box-shadow:0 0 8px #00E5A0;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* LAYOUT */
+.container{max-width:1200px;margin:0 auto;padding:28px 20px;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+@media(max-width:860px){.container{grid-template-columns:1fr}}
+
+/* PANELS */
+.panel{background:#0A1520;border:1px solid #1E3448;border-radius:14px;overflow:hidden}
+.panel-head{padding:14px 20px;border-bottom:1px solid #132030;display:flex;align-items:center;gap:10px}
+.panel-icon{width:28px;height:28px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.panel-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#F5A623;letter-spacing:0.12em;text-transform:uppercase}
+.panel-body{padding:20px}
+
+/* FORM */
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:10px;color:#4A6580;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px}
+.fg input,.fg select,.fg textarea{width:100%;background:rgba(255,255,255,0.03);border:1px solid #1E3448;border-radius:8px;padding:10px 13px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C8D8E8;outline:none;transition:border-color 0.2s,box-shadow 0.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#F5A623;box-shadow:0 0 0 3px rgba(245,166,35,0.1)}
+.fg select option{background:#0A1520}
+.fg textarea{resize:none;height:64px;line-height:1.6}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* RISK SLIDER */
+.risk-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.risk-row label{font-size:10px;color:#4A6580;letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:#1E3448;border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#F5A623;border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(245,166,35,0.5)}
+.risk-val{font-size:12px;font-weight:500;color:#F5A623;min-width:130px;text-align:right}
+
+/* PARAMS */
+.params-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.param{padding:8px 10px;border:1px solid #1E3448;border-radius:7px;font-size:10px;color:#6B8099;cursor:pointer;transition:all 0.15s;text-align:center;user-select:none}
+.param:hover{border-color:#2A4060}
+.param.on{background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.3);color:#F5A623;font-weight:500}
+
+/* BUTTON */
+.btn{width:100%;padding:13px;background:linear-gradient(135deg,#F5A623,#FF6B35);border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#060D14;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 20px rgba(245,166,35,0.2);margin-top:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(245,166,35,0.3)}
+.btn:disabled{opacity:0.55;cursor:not-allowed;transform:none}
+
+/* RIGHT PANEL STATES */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:420px;gap:14px;text-align:center;padding:20px}
+.empty-icon{width:72px;height:72px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.15);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:32px}
+.empty h2{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#C8D8E8}
+.empty p{font-size:11px;color:#4A6580;line-height:1.7;max-width:280px}
+.quick{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+.qk{padding:4px 12px;border:1px solid #1E3448;border-radius:20px;font-size:11px;color:#6B8099;cursor:pointer;transition:all 0.15s}
+.qk:hover{border-color:#F5A623;color:#F5A623}
+
+/* LOADING */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:420px;gap:18px;padding:20px}
+.spinner{width:44px;height:44px;border:3px solid #1E3448;border-top-color:#F5A623;border-radius:50%;animation:spin 0.85s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-title{font-size:12px;color:#6B8099;letter-spacing:0.1em;text-transform:uppercase}
+.steps{display:flex;flex-direction:column;gap:7px;width:260px}
+.step{display:flex;align-items:center;gap:10px;font-size:11px;color:#4A6580;transition:color 0.3s}
+.step.active{color:#F5A623}
+.step.done{color:#00E5A0}
+
+/* ERROR */
+.error-box{margin:20px;padding:16px;background:rgba(255,77,106,0.06);border:1px solid rgba(255,77,106,0.25);border-radius:10px;font-size:12px;color:#FF4D6A;line-height:1.7}
+
+/* RESULTS */
+.results{padding:20px;display:flex;flex-direction:column;gap:18px}
+
+/* SIGNAL CARD */
+.sig-card{padding:20px;border-radius:12px;border:1px solid;position:relative;overflow:hidden}
+.sig-card.BUY{background:rgba(0,229,160,0.05);border-color:rgba(0,229,160,0.25)}
+.sig-card.SELL{background:rgba(255,77,106,0.05);border-color:rgba(255,77,106,0.25)}
+.sig-card.HOLD{background:rgba(245,166,35,0.05);border-color:rgba(245,166,35,0.25)}
+.sig-glow{position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;opacity:0.07}
+.BUY .sig-glow{background:#00E5A0}
+.SELL .sig-glow{background:#FF4D6A}
+.HOLD .sig-glow{background:#F5A623}
+.sig-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.sig-lbl{font-size:10px;color:#6B8099;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px}
+.sig-signal{font-family:'Syne',sans-serif;font-size:34px;font-weight:800}
+.BUY .sig-signal{color:#00E5A0}
+.SELL .sig-signal{color:#FF4D6A}
+.HOLD .sig-signal{color:#F5A623}
+.sig-right{text-align:right}
+.sig-ticker{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#C8D8E8}
+.sig-co{font-size:11px;color:#6B8099;margin-top:2px}
+.conf-row{display:flex;justify-content:space-between;font-size:10px;color:#6B8099;margin-bottom:5px}
+.conf-pct{color:#F5A623;font-weight:600}
+.bar-track{height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.bar-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.BUY .bar-fill{background:linear-gradient(90deg,#00B07A,#00E5A0)}
+.SELL .bar-fill{background:linear-gradient(90deg,#CC2040,#FF4D6A)}
+.HOLD .bar-fill{background:linear-gradient(90deg,#D4820A,#F5A623)}
+.sig-summary{font-size:11px;color:#C8D8E8;line-height:1.7}
+
+/* SECTION */
+.sec-title{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#F5A623;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec-title::after{content:'';flex:1;height:1px;background:#132030}
+
+/* METRICS */
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:600px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.mc{padding:12px;background:rgba(255,255,255,0.02);border:1px solid #132030;border-radius:9px}
+.mc-lbl{font-size:9px;color:#4A6580;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px}
+.mc-val{font-size:15px;font-weight:500;color:#C8D8E8}
+.mc-val.g{color:#00E5A0}
+.mc-val.b{color:#38BDF8}
+.mc-val.a{color:#F5A623}
+
+/* ALLOCATION */
+.alloc-box{display:flex;align-items:center;gap:14px;padding:14px;background:rgba(56,189,248,0.04);border:1px solid rgba(56,189,248,0.12);border-radius:10px}
+.alloc-ring{width:68px;height:68px;border-radius:50%;border:4px solid rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.alloc-pct{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#38BDF8}
+.alloc-lbl{font-size:9px;color:#4A6580}
+.alloc-rows{flex:1}
+.alloc-r{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.alloc-r:last-child{border-bottom:none}
+.alloc-r span:first-child{color:#6B8099}
+.alloc-r span:last-child{color:#C8D8E8;font-weight:500}
+.alloc-note{font-size:10px;color:#6B8099;line-height:1.6;margin-top:8px}
+
+/* ENTRY GRID */
+.entry-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ec{padding:12px;background:rgba(255,255,255,0.02);border:1px solid #132030;border-radius:9px}
+.ec.fw{grid-column:1/-1}
+.ec-lbl{font-size:9px;color:#4A6580;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px}
+.ec-val{font-size:12px;color:#C8D8E8;font-weight:500;line-height:1.5}
+
+/* TARGETS TABLE */
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;color:#4A6580;letter-spacing:0.1em;text-transform:uppercase;text-align:left;padding:7px 8px;border-bottom:1px solid #132030;font-weight:500}
+td{padding:9px 8px;font-size:11px;border-bottom:1px solid rgba(255,255,255,0.03)}
+tr:last-child td{border-bottom:none}
+.bdg{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
+.t1{background:rgba(0,229,160,0.1);color:#00E5A0}
+.t2{background:rgba(56,189,248,0.1);color:#38BDF8}
+.t3{background:rgba(245,166,35,0.1);color:#F5A623}
+.sl{background:rgba(255,77,106,0.1);color:#FF4D6A}
+
+/* CHECKLISTS */
+.chk-list{display:flex;flex-direction:column;gap:8px}
+.chk-item{display:flex;gap:9px;font-size:11px;color:#C8D8E8;line-height:1.6}
+
+/* RISK BARS */
+.rb{margin-bottom:10px}
+.rb-row{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px}
+.rb-track{height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden}
+.rb-fill{height:100%;border-radius:2px}
+
+/* VIEW TEXT */
+.vt{font-size:11px;color:#C8D8E8;line-height:1.8}
+
+/* TAGS */
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{padding:4px 11px;border:1px solid rgba(56,189,248,0.2);border-radius:20px;font-size:10px;color:#38BDF8}
+
+/* VERDICT */
+.verdict{padding:16px;background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:11px;font-size:11px;color:#C8D8E8;line-height:1.8}
+
+/* DISCLAIMER */
+.disc{font-size:9px;color:#4A6580;text-align:center;line-height:1.7;padding-top:12px;border-top:1px solid #132030}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">M</div>
+    <div class="logo-text">
+      <h1>MSense</h1>
+      <p>AI Stock Analyser</p>
+    </div>
+  </div>
+  <div class="header-badge">
+    <div class="dot"></div>
+    AI ENGINE LIVE
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="container">
+
+  <!-- LEFT: INPUT -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-icon">🎯</div>
+      <span class="panel-title">Analysis Parameters</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="fg">
+        <label>Stock Name or Ticker *</label>
+        <input id="ticker" type="text" placeholder="e.g. RELIANCE, TCS, HDFC Bank, AAPL" />
+      </div>
+
+      <div class="fg-row fg">
+        <div>
+          <label>Capital to Invest</label>
+          <input id="capital" type="text" placeholder="e.g. ₹5,00,000" />
+        </div>
+        <div>
+          <label>Market View</label>
+          <select id="mktview">
+            <option value="Bullish">Bullish</option>
+            <option value="Neutral" selected>Neutral</option>
+            <option value="Bearish">Bearish</option>
+            <option value="Volatile">Volatile</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label>Investment Horizon</label>
+        <select id="horizon">
+          <option value="Short-term (1-3 months)">Short-term (1–3 months)</option>
+          <option value="Medium-term (6-18 months)" selected>Medium-term (6–18 months)</option>
+          <option value="Long-term (2-5 years)">Long-term (2–5 years)</option>
+        </select>
+      </div>
+
+      <div class="risk-row">
+        <label>Risk</label>
+        <input type="range" id="risk" min="0" max="100" value="50" step="1" oninput="updateRisk(this.value)" />
+        <span class="risk-val" id="risk-lbl">Moderate (50)</span>
+      </div>
+
+      <label style="font-size:10px;color:#4A6580;letter-spacing:0.12em;text-transform:uppercase;display:block;margin-bottom:8px">Analysis Focus</label>
+      <div class="params-grid">
+        <div class="param on" onclick="this.classList.toggle('on')">Fundamentals</div>
+        <div class="param on" onclick="this.classList.toggle('on')">Technicals</div>
+        <div class="param on" onclick="this.classList.toggle('on')">Valuation</div>
+        <div class="param on" onclick="this.classList.toggle('on')">Risk Metrics</div>
+        <div class="param" onclick="this.classList.toggle('on')">Sentiment</div>
+        <div class="param" onclick="this.classList.toggle('on')">Macro/Sector</div>
+        <div class="param" onclick="this.classList.toggle('on')">Momentum</div>
+        <div class="param" onclick="this.classList.toggle('on')">Volume</div>
+      </div>
+
+      <div class="fg">
+        <label>Additional Context (optional)</label>
+        <textarea id="ctx" placeholder="e.g. Q3 results just out, FII buying, budget impact..."></textarea>
+      </div>
+
+      <button class="btn" id="btn" onclick="analyse()">⚡ Analyse Stock</button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="panel" id="right-panel">
+    <div class="empty" id="empty-state">
+      <div class="empty-icon">📊</div>
+      <h2>Enter a Stock to Analyse</h2>
+      <p>Fill in the parameters on the left and click Analyse to get a full institutional-grade report.</p>
+      <div class="quick">
+        <span class="qk" onclick="quickPick('RELIANCE')">RELIANCE</span>
+        <span class="qk" onclick="quickPick('TCS')">TCS</span>
+        <span class="qk" onclick="quickPick('HDFC Bank')">HDFC Bank</span>
+        <span class="qk" onclick="quickPick('TATAMOTORS')">TATAMOTORS</span>
+        <span class="qk" onclick="quickPick('INFY')">INFY</span>
+        <span class="qk" onclick="quickPick('AAPL')">AAPL</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── YOUR API KEY ──────────────────────────────────────────
+const API_KEY = "PASTE_YOUR_API_KEY_HERE";
+// ─────────────────────────────────────────────────────────
+
+const STEPS = [
+  "Fetching market intelligence...",
+  "Analysing fundamentals & valuation...",
+  "Computing technical signals...",
+  "Assessing macro conditions...",
+  "Sizing position & risk...",
+  "Mapping entry & exit targets...",
+  "Generating investment thesis..."
+];
+
+function updateRisk(v) {
+  const lbl = v < 30 ? "Conservative" : v < 55 ? "Moderate" : v < 75 ? "Aggressive" : "Very Aggressive";
+  document.getElementById("risk-lbl").textContent = lbl + " (" + v + ")";
+}
+
+function quickPick(name) {
+  document.getElementById("ticker").value = name;
+  analyse();
+}
+
+function getParams() {
+  return [...document.querySelectorAll(".param.on")].map(el => el.textContent).join(", ") || "General";
+}
+
+function riskColor(l) {
+  return {Low:"#00E5A0","Low-Medium":"#7EE8C8",Medium:"#F5A623","Medium-High":"#FF9D4D",High:"#FF4D6A","Very High":"#CC1F3F"}[l] || "#F5A623";
+}
+function riskPct(l) {
+  return {Low:20,"Low-Medium":37,Medium:54,"Medium-High":70,High:83,"Very High":95}[l] || 50;
+}
+function bdgClass(l) {
+  return {T1:"t1",T2:"t2",T3:"t3",SL:"sl"}[l] || "t1";
+}
+
+function showLoading() {
+  let step = 0;
+  document.getElementById("right-panel").innerHTML =
+    '<div class="loading"><div class="spinner"></div>' +
+    '<div class="load-title">Analysing your stock...</div>' +
+    '<div class="steps">' +
+    STEPS.map((s, i) => `<div class="step${i===0?" active":""}" id="st${i}"><span style="min-width:14px">${i===0?"▶":"○"}</span><span>${s}</span></div>`).join("") +
+    "</div></div>";
+
+  const timer = setInterval(() => {
+    const prev = document.getElementById("st" + step);
+    if (prev) { prev.className = "step done"; prev.querySelector("span").textContent = "✓"; }
+    step++;
+    if (step < STEPS.length) {
+      const cur = document.getElementById("st" + step);
+      if (cur) { cur.className = "step active"; cur.querySelector("span").textContent = "▶"; }
+    } else clearInterval(timer);
+  }, 850);
+  return timer;
+}
+
+function showError(msg) {
+  document.getElementById("right-panel").innerHTML =
+    '<div class="error-box">⚠ ' + msg + '<br><br>Please try again. If the problem continues, check that your API key is correctly pasted in the code.</div>';
+}
+
+function showResult(d, ticker) {
+  const sig = (d.signal || "HOLD").toUpperCase();
+  const tk = d.ticker || ticker.toUpperCase();
+  const ps = d.positionSizing || {};
+  const es = d.entryStrategy || {};
+  const km = d.keyMetrics || {};
+
+  const targets = (d.targets || []).map(t =>
+    `<tr><td><span class="bdg ${bdgClass(t.level)}">${t.level}</span></td>` +
+    `<td style="font-weight:500;color:${t.level==="SL"?"#FF4D6A":"#00E5A0"}">${t.price||"—"}</td>` +
+    `<td style="color:#C8D8E8">${t.upside||t.downside||"—"}</td>` +
+    `<td style="color:#6B8099">${t.horizon||"—"}</td>` +
+    `<td style="color:#6B8099;font-size:10px">${t.action||"—"}</td></tr>`
+  ).join("");
+
+  const risks = (d.risks || []).map(r =>
+    `<div class="rb">` +
+    `<div class="rb-row"><span>${r.name}</span><span style="font-weight:500;color:${riskColor(r.level)}">${r.level}</span></div>` +
+    `<div class="rb-track"><div class="rb-fill" style="width:${riskPct(r.level)}%;background:${riskColor(r.level)}"></div></div>` +
+    `</div>`
+  ).join("");
+
+  const exits = (d.exitSignals || []).map(s =>
+    `<div class="chk-item"><span style="color:#FF4D6A;flex-shrink:0">!</span><span>${s}</span></div>`
+  ).join("");
+
+  const cats = (d.catalysts || []).map(c =>
+    `<div class="chk-item"><span style="color:#00E5A0;flex-shrink:0">+</span><span>${c}</span></div>`
+  ).join("");
+
+  const watchTags = (d.watchIndicators || []).map(w =>
+    `<span class="tag">${w}</span>`
+  ).join("");
+
+  document.getElementById("right-panel").innerHTML = `
+  <div class="results">
+
+    <div class="sig-card ${sig}">
+      <div class="sig-glow"></div>
+      <div class="sig-top">
+        <div>
+          <div class="sig-lbl">Investment Signal</div>
+          <div class="sig-signal">${sig}</div>
+        </div>
+        <div class="sig-right">
+          <div class="sig-ticker">${tk}</div>
+          <div class="sig-co">${d.companyName||""}</div>
+          <div class="sig-co">${d.sector||""}</div>
+        </div>
+      </div>
+      <div class="conf-row"><span>Confidence Score</span><span class="conf-pct">${d.confidence||0}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${d.confidence||0}%"></div></div>
+      <div class="sig-summary">${d.summary||""}</div>
+    </div>
+
+    <div>
+      <div class="sec-title">📈 Key Metrics</div>
+      <div class="metrics-grid">
+        <div class="mc"><div class="mc-lbl">Est. Price Range</div><div class="mc-val a" style="font-size:13px">${d.currentPriceEst||"—"}</div></div>
+        <div class="mc"><div class="mc-lbl">P/E Ratio</div><div class="mc-val">${km.peRatio||"—"}</div></div>
+        <div class="mc"><div class="mc-lbl">P/B Ratio</div><div class="mc-val">${km.pbRatio||"—"}</div></div>
+        <div class="mc"><div class="mc-lbl">ROE</div><div class="mc-val g">${km.roe||"—"}</div></div>
+        <div class="mc"><div class="mc-lbl">Revenue Growth</div><div class="mc-val b">${km.revenueGrowth||"—"}</div></div>
+        <div class="mc"><div class="mc-lbl">Debt / Equity</div><div class="mc-val">${km.debtEquity||"—"}</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-title">💼 Position Sizing</div>
+      <div class="alloc-box">
+        <div class="alloc-ring">
+          <div class="alloc-pct">${ps.suggestedAllocation||0}%</div>
+          <div class="alloc-lbl">portfolio</div>
+        </div>
+        <div class="alloc-rows">
+          <div class="alloc-r"><span>Min Investment</span><span>${ps.minInvestment||"—"}</span></div>
+          <div class="alloc-r"><span>Max Exposure</span><span>${ps.maxExposure||"—"}</span></div>
+          <div class="alloc-r"><span>Deploy In</span><span style="font-size:10px">${ps.tranches||"—"}</span></div>
+        </div>
+      </div>
+      <div class="alloc-note">${ps.rationale||""}</div>
+    </div>
+
+    <div>
+      <div class="sec-title">⏱ Entry Strategy</div>
+      <div class="entry-grid">
+        <div class="ec"><div class="ec-lbl">Timing</div><div class="ec-val">${es.timing||"—"}</div></div>
+        <div class="ec"><div class="ec-lbl">Entry Zone</div><div class="ec-val" style="color:#00E5A0">${es.entryZone||"—"}</div></div>
+        <div class="ec fw"><div class="ec-lbl">Ideal Entry Trigger</div><div class="ec-val">${es.idealEntry||"—"}</div></div>
+        <div class="ec fw"><div class="ec-lbl">Accumulation Strategy</div><div class="ec-val">${es.accumulationStrategy||"—"}</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-title">🎯 Price Targets & Stop Loss</div>
+      <table>
+        <thead><tr><th>Level</th><th>Price</th><th>Return</th><th>Horizon</th><th>Action</th></tr></thead>
+        <tbody>${targets}</tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="sec-title">🚪 When to Exit</div>
+      <div class="chk-list">${exits}</div>
+    </div>
+
+    <div>
+      <div class="sec-title">🛡 Risk Assessment</div>
+      ${risks}
+    </div>
+
+    <div>
+      <div class="sec-title">🔬 Technical View</div>
+      <div class="vt">${d.technicalView||""}</div>
+    </div>
+
+    <div>
+      <div class="sec-title">📋 Fundamental View</div>
+      <div class="vt">${d.fundamentalView||""}</div>
+    </div>
+
+    <div>
+      <div class="sec-title">🌍 Macro & Sector View</div>
+      <div class="vt">${d.macroView||""}</div>
+    </div>
+
+    ${cats ? `<div><div class="sec-title">🚀 Upcoming Catalysts</div><div class="chk-list">${cats}</div></div>` : ""}
+
+    ${watchTags ? `<div><div class="sec-title">👁 Indicators to Monitor</div><div class="tags">${watchTags}</div></div>` : ""}
+
+    <div class="verdict">${d.verdict||""}</div>
+
+    <div class="disc">⚠ This analysis is AI-generated for educational purposes only. Not financial advice. Please consult a SEBI-registered investment adviser before investing. All investments carry risk of loss.</div>
+
+  </div>`;
+}
+
+async function analyse() {
+  const ticker = document.getElementById("ticker").value.trim();
+  if (!ticker) { alert("Please enter a stock name first!"); return; }
+  if (API_KEY === "PASTE_YOUR_API_KEY_HERE") {
+    alert("Please add your Anthropic API key in the code first! Open index.html and replace PASTE_YOUR_API_KEY_HERE with your actual key.");
+    return;
+  }
+
+  const btn = document.getElementById("btn");
+  btn.disabled = true;
+  btn.textContent = "Analysing...";
+  const timer = showLoading();
+
+  const riskVal = document.getElementById("risk").value;
+  const riskLbl = riskVal < 30 ? "Conservative" : riskVal < 55 ? "Moderate" : riskVal < 75 ? "Aggressive" : "Very Aggressive";
+
+  const prompt = `You are an expert institutional stock analyst. Analyse this investment request and return ONLY a valid JSON object. No markdown. No explanation. Just the JSON.
+
+Stock: ${ticker}
+Capital: ${document.getElementById("capital").value || "not specified"}
+Horizon: ${document.getElementById("horizon").value}
+Risk Tolerance: ${riskLbl} (${riskVal}/100)
+Market View: ${document.getElementById("mktview").value}
+Parameters: ${getParams()}
+Context: ${document.getElementById("ctx").value || "none"}
+
+Return this exact JSON structure filled with real analysis:
+{"signal":"BUY","confidence":75,"ticker":"","companyName":"","sector":"","currentPriceEst":"","summary":"","entryStrategy":{"timing":"","entryZone":"","idealEntry":"","accumulationStrategy":""},"positionSizing":{"suggestedAllocation":10,"rationale":"","minInvestment":"","maxExposure":"","tranches":""},"targets":[{"level":"T1","price":"","upside":"","horizon":"","action":""},{"level":"T2","price":"","upside":"","horizon":"","action":""},{"level":"T3","price":"","upside":"","horizon":"","action":""},{"level":"SL","price":"","downside":"","horizon":"Immediate","action":"Full exit"}],"exitSignals":["","","",""],"keyMetrics":{"peRatio":"","pbRatio":"","roe":"","revenueGrowth":"","debtEquity":"","dividendYield":""},"technicalView":"","fundamentalView":"","macroView":"","risks":[{"name":"Market Risk","level":"Medium"},{"name":"Business Risk","level":"Low"},{"name":"Liquidity Risk","level":"Low"},{"name":"Regulatory Risk","level":"Low"}],"catalysts":["","",""],"watchIndicators":["","",""],"verdict":""}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-opus-4-5",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    clearInterval(timer);
+    const data = await res.json();
+
+    if (data.error) { showError(data.error.message); return; }
+
+    const text = (data.content || []).map(b => b.text || "").join("");
+    const s = text.indexOf("{");
+    const e = text.lastIndexOf("}") + 1;
+    if (s === -1 || e === 0) { showError("Could not read response. Please try again."); return; }
+    const parsed = JSON.parse(text.slice(s, e));
+    showResult(parsed, ticker);
+
+  } catch (err) {
+    clearInterval(timer);
+    showError("Connection error: " + err.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = "⚡ Analyse Stock";
+}
+</script>
+
+</body>
+</html>
